@@ -9,8 +9,8 @@
             "server": "localhost",
             "port": 33060,
             "driver": "MySQL",
-            "name": "flashcard_db",
-            "database": "ANDAL",
+            "name": "flashcard",
+            "database": "DB",
             "username": "root",
             "password": "root",
             "connectionTimeout": 30

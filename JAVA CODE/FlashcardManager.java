@@ -91,11 +91,13 @@ public class FlashcardManager {
 
             String sql = "INSERT INTO truefalse_flashcards (user_id, question, answer) VALUES (?, ?, ?)";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setInt(1, userId);
-                stmt.setString(2, question);
-                stmt.setString(3, answer);
+                stmt.setInt(1, userId);        
+                stmt.setString(2, question);  
+                stmt.setString(3, answer);    
                 stmt.executeUpdate();
                 System.out.println("Flashcard added successfully.");
+            } catch (SQLException e) {
+                System.out.println("Error while adding flashcard: " + e.getMessage());
             }
 
             System.out.print("Do you want to add another flashcard? (yes/no): ");
@@ -111,64 +113,73 @@ public class FlashcardManager {
         System.out.println("Choose flashcard type to remove:");
         System.out.println("1. Identification");
         System.out.println("2. True/False");
+        System.out.println("3. Remove All (Identification)");
+        System.out.println("4. Remove All (True/False)");
+        System.out.println("5. Remove All Flashcards");
         System.out.print("Enter your choice (leave blank to cancel): ");
         String choice = scanner.nextLine();
-
+    
         if (choice.isBlank()) {
             System.out.println("Operation canceled.");
             return;
         }
-
+    
         int typeChoice;
         try {
             typeChoice = Integer.parseInt(choice);
-            if (typeChoice < 1 || typeChoice > 2) {
-                System.out.println("Invalid choice. Please select 1 or 2.");
+            if (typeChoice < 1 || typeChoice > 5) {
+                System.out.println("Invalid choice. Please select a number between 1 and 5.");
                 return;
             }
         } catch (NumberFormatException e) {
             System.out.println("Invalid input. Please enter a valid number.");
             return;
         }
-
+    
         try (Connection conn = DatabaseConnection.getConnection()) {
-            if (typeChoice == 1) {
-                removeFlashcardFromTable(scanner, conn, "identification_flashcards");
-            } else if (typeChoice == 2) {
-                removeFlashcardFromTable(scanner, conn, "truefalse_flashcards");
+            switch (typeChoice) {
+                case 1 -> removeFlashcardFromTable(scanner, conn, "identification_flashcards");
+                case 2 -> removeFlashcardFromTable(scanner, conn, "truefalse_flashcards");
+                case 3 -> removeAllFromTable(conn, "identification_flashcards");
+                case 4 -> removeAllFromTable(conn, "truefalse_flashcards");
+                case 5 -> {
+                    removeAllFromTable(conn, "identification_flashcards");
+                    removeAllFromTable(conn, "truefalse_flashcards");
+                }
+                default -> System.out.println("Invalid choice. Operation canceled.");
             }
         } catch (SQLException e) {
-            System.out.println("Error while removing flashcard: " + e.getMessage());
+            System.out.println("Error while removing flashcard(s): " + e.getMessage());
         }
     }
-
+    
     private void removeFlashcardFromTable(Scanner scanner, Connection conn, String tableName) throws SQLException {
         String sql = "SELECT id, question, answer FROM " + tableName + " WHERE user_id = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, userId);
             ResultSet rs = stmt.executeQuery();
-
+    
             List<Integer> idList = displayFlashcardsWithIndex(rs);
-
+    
             if (idList.isEmpty()) {
                 System.out.println("No flashcards available to remove.");
                 return;
             }
-
+    
             System.out.print("Enter the index of the flashcard to remove (leave blank to cancel): ");
             String indexInput = scanner.nextLine();
             if (indexInput.isBlank()) {
                 System.out.println("Operation canceled.");
                 return;
             }
-
+    
             try {
                 int index = Integer.parseInt(indexInput);
                 if (index < 1 || index > idList.size()) {
                     System.out.println("Invalid index. Please select a valid index.");
                     return;
                 }
-
+    
                 int flashcardId = idList.get(index - 1);
                 String deleteSql = "DELETE FROM " + tableName + " WHERE id = ?";
                 try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
@@ -178,6 +189,19 @@ public class FlashcardManager {
                 }
             } catch (NumberFormatException e) {
                 System.out.println("Invalid input. Please enter a valid index.");
+            }
+        }
+    }
+    
+    private void removeAllFromTable(Connection conn, String tableName) throws SQLException {
+        String deleteAllSql = "DELETE FROM " + tableName + " WHERE user_id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(deleteAllSql)) {
+            stmt.setInt(1, userId);
+            int rowsDeleted = stmt.executeUpdate();
+            if (rowsDeleted > 0) {
+                System.out.println("All flashcards from " + tableName + " removed successfully.");
+            } else {
+                System.out.println("No flashcards found to remove.");
             }
         }
     }
@@ -395,7 +419,6 @@ public class FlashcardManager {
                 }
             }
 
-            // Handle skipped questions
             if (!skippedQuestions.isEmpty()) {
                 System.out.println("\nAnswering skipped questions...");
                 for (int i : skippedQuestions) {
